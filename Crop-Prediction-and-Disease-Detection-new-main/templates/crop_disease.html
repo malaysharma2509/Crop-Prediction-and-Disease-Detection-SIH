@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Disease Classifier</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=Oswald:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+
+    <!-- Vanta.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Oswald', sans-serif;
+            color: #333;
+            height: 100vh;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .header {
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 15px;
+            color: white;
+            z-index: 10;
+        }
+
+        h1 {
+            font-family: 'Fira Sans', cursive;
+            font-size: 2.5rem;
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 80%;
+            height: 80%;
+            margin-top: 80px;
+        }
+
+        .form-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            margin-bottom: 20px;
+        }
+
+        .btn-primary {
+            background-color: #28a745;
+            border-color: #28a745;
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform 0.5s;
+        }
+
+        .btn-primary:hover {
+            background-color: transparent;
+            color: white;
+            transform: translateY(-8px);
+            border-color: #16c1d7;
+            border-width: 3px;
+        }
+
+        #wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .result-container {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: white;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
+
+        .result-container.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .result-container img {
+            width: 300px;
+            height: 300px;
+            margin-bottom: 20px;
+            border-radius: 15px;
+            border: 2px solid #f9f9f9;
+        }
+
+        .suggestion-container {
+            display: none; /* Hide initially */
+        }
+
+        .suggestion-container.active {
+            display: block; /* Show when active */
+        }
+
+        .recommendation {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .recommendation-result {
+            flex: 1;
+            margin-right: 20px;
+        }
+
+        .recommendation-info {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            color: white;
+            transition: opacity 2s ease-in-out;
+        }
+    </style>
+
+    <script>
+        const prediction = "{{ prediction }}";  // Inject the prediction variable from Flask
+        console.log("Predicted class:", prediction);
+        const diseases = {
+            "Bell Pepper Healthy": {
+                Tip: "Maintain regular care; monitor for any signs of disease."
+            },
+            "Potato Early Blight": {
+                Cause: "Fungal infection spread by wind, rain, or contaminated soil.",
+                Cure: "Remove and destroy infected plant debris; apply fungicides with chlorothalonil or mancozeb.",
+                Precautions: "Practice crop rotation; ensure proper spacing and avoid overhead watering."
+            },
+            "Potato Late Blight": {
+                Cause: "Fungal infection favored by cool, wet weather.",
+                Cure: "Remove and destroy infected plants; apply fungicides with metalaxyl or mancozeb.",
+                Precautions: "Practice crop rotation; avoid overhead watering and ensure good air circulation."
+            },
+            "Potato Healthy": {
+                Tip: "Maintain regular care; monitor for any signs of disease."
+            },
+            "Tomato Bacterial Spot": {
+                Cause: "Bacteria spread through water, wind, and contaminated tools.",
+                Cure: "Remove and destroy infected plants; apply copper-based fungicides.",
+                Precautions: "Practice crop rotation; avoid overhead watering and ensure proper spacing."
+            },
+            "Tomato Early Blight": {
+                Cause: "Fungal infection spread by rain, wind, or contaminated soil.",
+                Cure: "Remove infected plant parts; apply fungicides containing chlorothalonil or mancozeb.",
+                Precautions: "Practice crop rotation; provide adequate spacing and avoid overhead watering."
+            },
+            "Bell Pepper Bacterial Spot": {
+                Cause: "Bacteria spread through water, seeds, and contaminated tools.",
+                Cure: "Remove infected plants, apply copper-based fungicides, and treat seeds with bleach or hot water.",
+                Precautions: "Practice crop rotation, ensure proper spacing, avoid overhead watering, use resistant varieties, and maintain sanitation."
+            },
+            "Tomato Late Blight": {
+                Cause: "Fungal infection favored by cool, wet weather.",
+                Cure: "Apply mancozeb fungicide.",
+                Precautions: "Remove infected leaves; avoid overcrowding."
+            },
+            "Tomato Leaf Mold": {
+                Cause: "Fungal infection in humid conditions.",
+                Cure: "Use chlorothalonil fungicide.",
+                Precautions: "Improve ventilation; reduce humidity."
+            },
+            "Tomato Septoria Leaf Spot": {
+                Cause: "Fungal infection spread by water and contaminated soil.",
+                Cure: "Apply chlorothalonil.",
+                Precautions: "Rotate crops; remove infected leaves."
+            },
+            "Tomato Spider Mites": {
+                Cause: "Infestation of spider mites, often in dry conditions.",
+                Cure: "Use neem oil or insecticidal soap.",
+                Precautions: "Maintain plant health; avoid water stress."
+            },
+            "Tomato Target Spot": {
+                Cause: "Fungal infection spread by water splashes.",
+                Cure: "Apply mancozeb fungicide.",
+                Precautions: "Remove diseased leaves; avoid overhead watering."
+            },
+            "Tomato Yellow Leaf Curl Virus": {
+                Cause: "Virus spread by whiteflies.",
+                Cure: "No Cure; remove infected plants.",
+                Precautions: "Control whiteflies; use resistant varieties."
+            },
+            "Tomato Mosaic Virus": {
+                Cause: "Virus spread by contaminated tools and contact.",
+                Cure: "No Cure; remove infected plants.",
+                Precautions: "Disinfect tools; avoid smoking near plants."
+            },
+            "Tomato Healthy": {
+                Tip: "Maintain regular care; monitor for any signs of disease."
+            }
+        };
+
+        document.addEventListener("DOMContentLoaded", function () {
+            VANTA.NET({
+                el: "#wrapper",
+                mouseControls: true,
+                touchControls: true,
+                gyroControls: false,
+                minHeight: 200.00,
+                minWidth: 200.00,
+                scale: 1.00,
+                scaleMobile: 1.00,
+                color: 0xffbf,
+                backgroundColor: 0x0,
+                points: 12.00,
+                maxDistance: 27.00
+            });
+
+            let hasImage = false;
+
+            // Preview uploaded image but don't shift or predict yet
+            document.querySelector('input[type="file"]').addEventListener('change', function (event) {
+                const [file] = event.target.files;
+                if (file) {
+                    const img = document.querySelector('.result-container img');
+                    img.src = URL.createObjectURL(file);
+                    hasImage = true; // Set flag to indicate an image is loaded
+                    img.style.display = 'block';
+                    document.querySelector('.result-container').classList.remove('active'); // Hide results when a new file is chosen
+                    document.querySelector('.suggestion-container').classList.remove('active'); // Hide suggestions when a new file is chosen
+                }
+            });
+
+            // Handle form submission
+            document.querySelector('form').addEventListener('submit', function (event) {
+                if (!hasImage) {
+                    event.preventDefault(); // Prevent submission if no image is loaded
+                    alert("Please select an image before submitting!");
+                }
+            });
+
+            // Function to generate suggestion button after prediction
+            function createSuggestionButton(prediction) {
+                const suggestionButton = document.createElement('button');
+                suggestionButton.classList.add('btn', 'btn-primary', 'mt-3');
+                suggestionButton.textContent = 'Get Suggestion';
+                suggestionButton.addEventListener('click', function () {
+                    displaySuggestion(prediction);
+                });
+
+                document.querySelector('.result-container').appendChild(suggestionButton);
+            }
+
+            // Function to display suggestion
+            function displaySuggestion(prediction) {
+                const suggestionContainer = document.querySelector('.suggestion-container');
+                const recommendationContent = document.querySelector('#recommendation-content');
+                recommendationContent.innerHTML = ''; // Clear previous suggestion
+
+                const diseaseInfo = diseases[prediction];
+                if (diseaseInfo) {
+                    const title = document.createElement('h3');
+                    //title.textContent = `Suggestions for ${prediction}`;
+                    recommendationContent.appendChild(title);
+
+                    Object.entries(diseaseInfo).forEach(([key, value]) => {
+                        const p = document.createElement('p');
+                        p.innerHTML = `<strong>${key}:</strong> ${value}`;
+                        recommendationContent.appendChild(p);
+                    });
+                } else {
+                    const noInfo = document.createElement('p');
+                    noInfo.textContent = "No suggestions available for this disease.";
+                    recommendationContent.appendChild(noInfo);
+                }
+
+                suggestionContainer.classList.add('active'); // Show suggestions
+            }
+
+            // Simulate backend prediction for demonstration
+            //const prediction = "Potato Early Blight"; // Replace this with actual prediction from the backend
+
+            if (prediction) {
+                createSuggestionButton(prediction);
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <div id="wrapper"></div>
+
+    <div class="header">
+        <h1>Crop Disease Identifier</h1>
+    </div>
+
+    <div class="container">
+        <div class="form-container">
+            <form method="POST" enctype="multipart/form-data" action="{{ url_for('crop_disease') }}">
+                <input type="file" name="file" class="form-control" accept="image/*" required>
+                <button type="submit" class="btn btn-primary mt-3">Predict</button>
+            </form>
+        </div>
+
+        <div class="result-container {{ 'active' if prediction else '' }}">
+            <!-- Display the image if 'image_url' is provided by the backend -->
+            {% if image_url %}
+                <img src="{{ image_url }}" alt="Selected Image">
+            {% else %}
+                <img src="#" alt="No Image Selected" style="display: none;">
+            {% endif %}
+            <h2>Prediction: {{ prediction }}</h2>
+            <h3>Confidence: {{ confidence }}%</h3>
+        </div>
+
+        <div class="suggestion-container">
+            <div class="recommendation">
+                <div class="recommendation-info">
+                    <h3>Recommendations</h3>
+                    <div id="recommendation-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
